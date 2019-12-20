@@ -5,13 +5,12 @@ import sys
 import time
 
 from google.api_core.exceptions import ResourceExhausted
-from google.cloud import language
+from google.cloud import language, storage
 
 from config import Session
 from database import Review, Entity
 
-last_line_is_progress_bar = False
-
+tmp_file = '/tmp/reviews.csv'
 
 # This function calls the Google NLP API and stores the review entities
 def analyze_review(client, review, session, msg):
@@ -48,10 +47,22 @@ def analyze_review(client, review, session, msg):
         return False
 
 
+def fetch_file_from_s3(bucket_name, file_name):
+    print("Fetching file from Google Cloud Storage")
+    try:
+        storage_client = storage.Client()
+        bucket = storage_client.bucket(bucket_name)
+        blob = bucket.blob(file_name)
+        blob.download_to_filename(tmp_file)
+        print("File Fetched!!")
+    except:
+        print("Unable to fetch file!! Please verify permissions!!")
+        exit()
+
+
 # This function takes the input and store it in reviews table
-def process_input(input_file, header=True):
-    global last_line_is_progress_bar
-    csv_file = open(input_file, 'r')
+def process_input(header=True):
+    csv_file = open(tmp_file, 'r')
     csv_reader = list(csv.reader(csv_file, delimiter=','))
     line_no = 0
     if header:
@@ -63,7 +74,6 @@ def process_input(input_file, header=True):
     reviews_set = {(review.product_id, str(review.review_text).lower()) for review in all_reviews}
     reviews_in_file = set()
     print("Processing input file..")
-    last_line_is_progress_bar = False
     step = 10
     for line in csv_reader:
         line_no += 1
@@ -80,14 +90,12 @@ def process_input(input_file, header=True):
             reviews_in_file.add(search_key)
 
     print("Committing data...")
-    last_line_is_progress_bar = False
     session.commit()
     session.close()
 
 
 # This function iterates the  reviews which are pending to analyze and analyzes them.
 def process_reviews():
-    global last_line_is_progress_bar
     session = Session()
     client = language.LanguageServiceClient()
     reviews_to_analyze = session.query(Review).filter_by(review_analyzed=False).all()
@@ -120,16 +128,18 @@ def process_reviews():
 
 if __name__ == '__main__':
     args = sys.argv
-    if len(args) == 1:
-        print("Usage: python main.py path_to_input_file.csv")
-        quit()
-    file_path = args[1]
-    if not os.path.exists(file_path):
-        print("No file found at path: {}".format(file_path))
+    if len(args) != 3:
+        print("Usage: python main.py bucket_name file_name")
         quit()
     try:
+        bucket_name = args[1]
+        file_name = args[2]
         header = input("Consider first line as header?(Y/n):") or "y"
-        process_input(file_path, str(header).lower() == "y")
+        fetch_file_from_s3(bucket_name, file_name)
+        process_input(str(header).lower() == "y")
         process_reviews()
     except:
+        # import traceback
+        #
+        # traceback.print_exc()
         print("Error in Processing data!! Aborting!!")

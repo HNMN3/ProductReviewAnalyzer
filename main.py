@@ -2,6 +2,7 @@
 import csv
 import os
 import sys
+import time
 
 from google.api_core.exceptions import ResourceExhausted
 from google.cloud import language
@@ -13,7 +14,7 @@ last_line_is_progress_bar = False
 
 
 # This function calls the Google NLP API and stores the review entities
-def analyze_review(client, review, session):
+def analyze_review(client, review, session, msg):
     try:
 
         # The review text to analyze
@@ -37,7 +38,8 @@ def analyze_review(client, review, session):
             session.add(entity_obj)
         return True
     except ResourceExhausted:
-        print("Resource Quota Exhausted for the NLP API! Stopping the process!!")
+        print("Resource Quota Exhausted for the NLP API!!")
+        print(msg)
         return False
     except:
         import traceback
@@ -94,8 +96,12 @@ def process_reviews():
     step = 1
     print("Processing Reviews...")
     print("Processed {}/{} ".format(processed, total), end='\r')
+    default_msg = 'Sleeping for 1 minute before retrying..'
+    abort_message = 'Stopping the process!!'
     for review in reviews_to_analyze:
-        flag = analyze_review(client, review, session)
+        flag = (analyze_review(client, review, session, default_msg)
+                or time.sleep(60)
+                or analyze_review(client, review, session, abort_message))
         if not flag:
             break
         review.review_analyzed = True

@@ -1,6 +1,5 @@
 # Imports the Google Cloud client library
 import csv
-import os
 import sys
 import time
 
@@ -11,6 +10,7 @@ from config import Session
 from database import Review, Entity
 
 tmp_file = '/tmp/reviews.csv'
+
 
 # This function calls the Google NLP API and stores the review entities
 def analyze_review(client, review, session, msg):
@@ -47,7 +47,8 @@ def analyze_review(client, review, session, msg):
         return False
 
 
-def fetch_file_from_s3(bucket_name, file_name):
+# This function fetches file from GCS
+def fetch_file_from_gcs(bucket_name, file_name):
     print("Fetching file from Google Cloud Storage")
     try:
         storage_client = storage.Client()
@@ -74,7 +75,6 @@ def process_input(header=True):
     reviews_set = {(review.product_id, str(review.review_text).lower()) for review in all_reviews}
     reviews_in_file = set()
     print("Processing input file..")
-    step = 10
     for line in csv_reader:
         line_no += 1
         review_text = line[0]
@@ -102,10 +102,13 @@ def process_reviews():
     total = len(reviews_to_analyze)
     processed = 0
     step = 1
+    throttle_limit = 500
     print("Processing Reviews...")
     print("Processed {}/{} ".format(processed, total), end='\r')
     default_msg = 'Sleeping for 1 minute before retrying..'
     abort_message = 'Stopping the process!!'
+    start_time = time.time()
+    one_minute = 60
     for review in reviews_to_analyze:
         flag = (analyze_review(client, review, session, default_msg)
                 or time.sleep(60)
@@ -117,6 +120,13 @@ def process_reviews():
         processed += 1
         if processed % step == 0:
             print("Processed {}/{} ".format(processed, total), end='\r')
+
+        if processed % throttle_limit == 0:
+            end_time = time.time()
+            time_taken = end_time - start_time
+            if time_taken < one_minute:
+                time.sleep(one_minute - time_taken)
+            start_time = time.time()
 
     print("Processed {}/{} ".format(processed, total))
     print("Committing data...")
@@ -135,7 +145,7 @@ if __name__ == '__main__':
         bucket_name = args[1]
         file_name = args[2]
         header = input("Consider first line as header?(Y/n):") or "y"
-        fetch_file_from_s3(bucket_name, file_name)
+        fetch_file_from_gcs(bucket_name, file_name)
         process_input(str(header).lower() == "y")
         process_reviews()
     except:

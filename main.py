@@ -12,9 +12,8 @@ last_line_is_progress_bar = False
 
 
 # This function calls the Google NLP API and stores the review entities
-def analyze_review(review, session):
+def analyze_review(client, review, session):
     # Instantiates a client
-    client = language.LanguageServiceClient()
 
     # The review text to analyze
     text = review.review_text
@@ -79,6 +78,7 @@ def process_input(input_file, header=True):
 def process_reviews():
     global last_line_is_progress_bar
     session = Session()
+    client = language.LanguageServiceClient()
     reviews_to_analyze = session.query(Review).filter_by(review_analyzed=False).all()
     total = len(reviews_to_analyze)
     processed = 0
@@ -86,17 +86,18 @@ def process_reviews():
     print("Processing Reviews...")
     print("Processed {}/{} ".format(processed, total), end='\r')
     for review in reviews_to_analyze:
-        analyze_review(review, session)
+        analyze_review(client, review, session)
         review.review_analyzed = True
         session.add(review)
         processed += 1
         if processed % step == 0:
             print("Processed {}/{} ".format(processed, total), end='\r')
-
+    
     print("Processed {}/{} ".format(processed, total))
     print("Committing data...")
     session.commit()
     session.close()
+
     print("All reviews processed")
 
 

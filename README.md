@@ -1,6 +1,6 @@
 # NLP_Review_Analyzer
 - Download the private key for your account from GCP and put it in env variable as below:
-    export GOOGLE_APPLICATION_CREDENTIALS="path_to_private_key_file.json"
+    export GOOGLE_APPLICATION_CREDENTIALS="/home/hnmn3/NLP_Review_Analyzer/private_key.json"
 - Make sure that python 3.7 is installed
 - Installed the required libraries via below command:
     pip install -r requirements.txt

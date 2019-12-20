@@ -3,9 +3,9 @@ import csv
 import os
 import sys
 
+from google.api_core.exceptions import ResourceExhausted
 from google.cloud import language
 
-from google.api_core.exceptions import ResourceExhausted
 from config import Session
 from database import Review, Entity
 
@@ -95,7 +95,7 @@ def process_reviews():
     print("Processing Reviews...")
     print("Processed {}/{} ".format(processed, total), end='\r')
     for review in reviews_to_analyze:
-        flag, msg = analyze_review(client, review, session)
+        flag = analyze_review(client, review, session)
         if not flag:
             break
         review.review_analyzed = True

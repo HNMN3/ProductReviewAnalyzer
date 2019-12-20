@@ -5,6 +5,7 @@ import sys
 
 from google.cloud import language
 
+from google.api_core.exceptions import ResourceExhausted
 from config import Session
 from database import Review, Entity
 
@@ -13,27 +14,36 @@ last_line_is_progress_bar = False
 
 # This function calls the Google NLP API and stores the review entities
 def analyze_review(client, review, session):
-    # Instantiates a client
+    try:
 
-    # The review text to analyze
-    text = review.review_text
+        # The review text to analyze
+        text = review.review_text
 
-    # Calling Google NLP API
-    document = language.types.Document(
-        content=text,
-        type='PLAIN_TEXT',
-    )
-    response = client.analyze_entity_sentiment(
-        document=document,
-        encoding_type='UTF32',
-    )
-    entities = response.entities
-    for entity in entities:
-        entity_name = entity.name
-        salience = entity.salience
-        sentiment_score = entity.sentiment.score
-        entity_obj = Entity(entity_name, salience, sentiment_score, review.id)
-        session.add(entity_obj)
+        # Calling Google NLP API
+        document = language.types.Document(
+            content=text,
+            type='PLAIN_TEXT',
+        )
+        response = client.analyze_entity_sentiment(
+            document=document,
+            encoding_type='UTF32',
+        )
+        entities = response.entities
+        for entity in entities:
+            entity_name = entity.name
+            salience = entity.salience
+            sentiment_score = entity.sentiment.score
+            entity_obj = Entity(entity_name, salience, sentiment_score, review.id)
+            session.add(entity_obj)
+        return True
+    except ResourceExhausted:
+        print("Resource Quota Exhausted for the NLP API! Stopping the process!!")
+        return False
+    except:
+        import traceback
+        traceback.print_exc()
+        print("Stopping the process!!")
+        return False
 
 
 # This function takes the input and store it in reviews table
@@ -41,7 +51,6 @@ def process_input(input_file, header=True):
     global last_line_is_progress_bar
     csv_file = open(input_file, 'r')
     csv_reader = list(csv.reader(csv_file, delimiter=','))
-    total = len(csv_reader)
     line_no = 0
     if header:
         line_no += 1
@@ -86,19 +95,21 @@ def process_reviews():
     print("Processing Reviews...")
     print("Processed {}/{} ".format(processed, total), end='\r')
     for review in reviews_to_analyze:
-        analyze_review(client, review, session)
+        flag, msg = analyze_review(client, review, session)
+        if not flag:
+            break
         review.review_analyzed = True
         session.add(review)
         processed += 1
         if processed % step == 0:
             print("Processed {}/{} ".format(processed, total), end='\r')
-    
+
     print("Processed {}/{} ".format(processed, total))
     print("Committing data...")
     session.commit()
     session.close()
 
-    print("All reviews processed")
+    print("Processed data stored successfully!!")
 
 
 if __name__ == '__main__':
@@ -110,6 +121,9 @@ if __name__ == '__main__':
     if not os.path.exists(file_path):
         print("No file found at path: {}".format(file_path))
         quit()
-    header = input("Consider first line as header?(Y/n):") or "y"
-    process_input(file_path, str(header).lower() == "y")
-    process_reviews()
+    try:
+        header = input("Consider first line as header?(Y/n):") or "y"
+        process_input(file_path, str(header).lower() == "y")
+        process_reviews()
+    except:
+        print("Error in Processing data!! Aborting!!")

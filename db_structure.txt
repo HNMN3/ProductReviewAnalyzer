@@ -1,0 +1,20 @@
+--reviews_db
+    |
+    |-- Table Review
+    |       |
+    |       |--id
+    |       |--product_id
+    |       |--review_text
+    |       |--review_sentiment_score
+    |       |--review_sentiment_magnitude
+    |       |--review_analyzed
+    |
+    |
+    |-- Table Entity
+    |       |
+    |       |--id
+    |       |--entity_name
+    |       |--salience
+    |       |--sentiment_score
+    |       |--sentiment_magnitude
+    |       |--review_id

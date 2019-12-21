@@ -11,6 +11,8 @@ class Review(Base):
     id = Column(Integer, primary_key=True)
     product_id = Column(String)
     review_text = Column(String)
+    review_sentiment_score = Column(Float)
+    review_sentiment_magnitude = Column(Float)
     review_analyzed = Column(Boolean, default=False)
 
     def __init__(self, product_id, review_text, review_analyzed=None):
@@ -29,11 +31,13 @@ class Entity(Base):
     entity_name = Column(String)
     salience = Column(Float)
     sentiment_score = Column(Float)
+    sentiment_magnitude = Column(Float)
     review_id = Column(Integer, ForeignKey('review.id'))
     review = relationship("Review", backref="entities")
 
-    def __init__(self, entity_name, salience, sentiment_score, review_id):
+    def __init__(self, entity_name, salience, sentiment_score, sentiment_magnitude, review_id):
         self.entity_name = entity_name
         self.salience = salience
         self.sentiment_score = sentiment_score
+        self.sentiment_magnitude = sentiment_magnitude
         self.review_id = review_id

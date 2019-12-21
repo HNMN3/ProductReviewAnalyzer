@@ -24,16 +24,24 @@ def analyze_review(client, review, session, msg):
             content=text,
             type='PLAIN_TEXT',
         )
-        response = client.analyze_entity_sentiment(
+        review_response = client.analyze_sentiment(
             document=document,
             encoding_type='UTF32',
         )
-        entities = response.entities
+        review.review_sentiment_magnitude = review_response.document_sentiment.magnitude
+        review.review_sentiment_score = review_response.document_sentiment.score
+
+        entities_response = client.analyze_entity_sentiment(
+            document=document,
+            encoding_type='UTF32',
+        )
+        entities = entities_response.entities
         for entity in entities:
             entity_name = entity.name
             salience = entity.salience
             sentiment_score = entity.sentiment.score
-            entity_obj = Entity(entity_name, salience, sentiment_score, review.id)
+            sentiment_magnitude = entity.sentiment.magnitude
+            entity_obj = Entity(entity_name, salience, sentiment_score, sentiment_magnitude, review.id)
             session.add(entity_obj)
         return True
     except ResourceExhausted:
@@ -118,6 +126,9 @@ def process_reviews():
         review.review_analyzed = True
         session.add(review)
         processed += 1
+        if processed == 5:
+            break
+
         if processed % step == 0:
             print("Processed {}/{} ".format(processed, total), end='\r')
 

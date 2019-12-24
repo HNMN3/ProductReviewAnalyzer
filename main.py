@@ -1,5 +1,6 @@
 # Imports the Google Cloud client library
 import csv
+import os
 import sys
 import time
 
@@ -9,7 +10,7 @@ from google.cloud import language, storage
 from config import Session
 from database import Review, Entity
 
-tmp_file = '/tmp/reviews.csv'
+tmp_file = 'reviews.csv'
 
 
 # This function calls the Google NLP API and stores the review entities
@@ -71,8 +72,12 @@ def fetch_file_from_gcs(bucket_name, file_name):
 
 # This function takes the input and store it in reviews table
 def process_input(header=True):
-    csv_file = open(tmp_file, 'r')
-    csv_reader = list(csv.reader(csv_file, delimiter=','))
+    csv_file = open(tmp_file, 'r', encoding='utf-8')
+    try:
+        csv_reader = list(csv.reader(csv_file, delimiter=','))
+    except:
+        print("Error in opening csv file. Please check the format/encoding!!")
+        exit()
     line_no = 0
     if header:
         line_no += 1
@@ -100,6 +105,11 @@ def process_input(header=True):
     print("Committing data...")
     session.commit()
     session.close()
+    try:
+        # Remove downloaded file
+        os.remove(tmp_file)
+    except:
+        pass
 
 
 # This function iterates the  reviews which are pending to analyze and analyzes them.

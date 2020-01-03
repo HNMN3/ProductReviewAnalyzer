@@ -136,8 +136,6 @@ def process_reviews():
         review.review_analyzed = True
         session.add(review)
         processed += 1
-        if processed == 5:
-            break
 
         if processed % step == 0:
             print("Processed {}/{} ".format(processed, total), end='\r')

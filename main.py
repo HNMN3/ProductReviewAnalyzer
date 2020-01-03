@@ -128,9 +128,13 @@ def process_reviews():
     start_time = time.time()
     one_minute = 60
     for review in reviews_to_analyze:
-        flag = (analyze_review(client, review, session, default_msg)
-                or time.sleep(60)
-                or analyze_review(client, review, session, abort_message))
+        cnt = 5
+        flag = False
+        while cnt > 0 and not flag:
+            cnt -= 1
+            flag = analyze_review(client, review, session, default_msg)
+            flag or time.sleep(180)
+
         if not flag:
             break
         review.review_analyzed = True

@@ -16,7 +16,7 @@ tmp_file = 'reviews.csv'
 # This function calls the Google NLP API and stores the review entities
 def analyze_review(client, review, session, cnt=1):
     try:
-        if cnt > 5:
+        if cnt > 10:
             return False
         # The review text to analyze
         text = review.review_text
@@ -45,15 +45,15 @@ def analyze_review(client, review, session, cnt=1):
             sentiment_magnitude = entity.sentiment.magnitude
             entity_obj = Entity(entity_name, salience, sentiment_score, sentiment_magnitude, review.id)
             session.add(entity_obj)
+        time.sleep(0.1)
         return True
     except ResourceExhausted:
+
         print("Resource Quota Exhausted for the NLP API!!")
-        print('Sleeping for 3 minute before retrying..')
-        time.sleep(180)
+        print('Sleeping for 10 seconds before retrying..')
+        time.sleep(10)
         return analyze_review(client, review, session, cnt + 1)
     except:
-        import traceback
-        traceback.print_exc()
         print("Unknown Exception occurred!! Skipping the review!!")
         return False
 
@@ -80,8 +80,8 @@ def process_reviews():
         session.add(review)
         processed += 1
 
-        if processed % step == 0:
-            print("Processed {}/{} ".format(processed, total), end='\r')
+        # if processed % step == 0:
+        print("Processed {}/{} ".format(processed, total), end='\r')
 
         if processed % throttle_limit == 0:
             end_time = time.time()

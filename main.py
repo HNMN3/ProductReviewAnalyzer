@@ -14,9 +14,10 @@ tmp_file = 'reviews.csv'
 
 
 # This function calls the Google NLP API and stores the review entities
-def analyze_review(client, review, session, msg):
+def analyze_review(client, review, session, cnt=1):
     try:
-
+        if cnt > 5:
+            return False
         # The review text to analyze
         text = review.review_text
 
@@ -47,13 +48,54 @@ def analyze_review(client, review, session, msg):
         return True
     except ResourceExhausted:
         print("Resource Quota Exhausted for the NLP API!!")
-        print(msg)
-        return False
+        print('Sleeping for 3 minute before retrying..')
+        time.sleep(180)
+        return analyze_review(client, review, session, cnt + 1)
     except:
         import traceback
         traceback.print_exc()
-        print("Stopping the process!!")
+        print("Unknown Exception occurred!! Skipping the review!!")
         return False
+
+
+# This function iterates the  reviews which are pending to analyze and analyzes them.
+def process_reviews():
+    session = Session()
+    client = language.LanguageServiceClient()
+    reviews_to_analyze = session.query(Review).filter_by(review_analyzed=False).all()
+    total = len(reviews_to_analyze)
+    processed = 0
+    step = 1
+    throttle_limit = 500
+    print("Processing Reviews...")
+    print("Processed {}/{} ".format(processed, total), end='\r')
+    start_time = time.time()
+    one_minute = 60
+    for review in reviews_to_analyze:
+        try:
+            analyze_review(client, review, session)
+        except:
+            pass
+        review.review_analyzed = True
+        session.add(review)
+        processed += 1
+
+        if processed % step == 0:
+            print("Processed {}/{} ".format(processed, total), end='\r')
+
+        if processed % throttle_limit == 0:
+            end_time = time.time()
+            time_taken = end_time - start_time
+            if time_taken < one_minute:
+                time.sleep(one_minute - time_taken)
+            start_time = time.time()
+
+    print("Processed {}/{} ".format(processed, total))
+    print("Committing data...")
+    session.commit()
+    session.close()
+
+    print("Processed data stored successfully!!")
 
 
 # This function fetches file from GCS
@@ -73,11 +115,12 @@ def fetch_file_from_gcs(bucket_name, file_name):
 # This function takes the input and store it in reviews table
 def process_input(header=True):
     csv_file = open(tmp_file, 'r', encoding='utf-8')
+    csv_reader = None
     try:
         csv_reader = list(csv.reader(csv_file, delimiter=','))
     except:
         print("Error in opening csv file. Please check the format/encoding!!")
-        exit()
+        quit()
     line_no = 0
     if header:
         line_no += 1
@@ -110,53 +153,6 @@ def process_input(header=True):
         os.remove(tmp_file)
     except:
         pass
-
-
-# This function iterates the  reviews which are pending to analyze and analyzes them.
-def process_reviews():
-    session = Session()
-    client = language.LanguageServiceClient()
-    reviews_to_analyze = session.query(Review).filter_by(review_analyzed=False).all()
-    total = len(reviews_to_analyze)
-    processed = 0
-    step = 1
-    throttle_limit = 500
-    print("Processing Reviews...")
-    print("Processed {}/{} ".format(processed, total), end='\r')
-    default_msg = 'Sleeping for 1 minute before retrying..'
-    abort_message = 'Stopping the process!!'
-    start_time = time.time()
-    one_minute = 60
-    for review in reviews_to_analyze:
-        cnt = 5
-        flag = False
-        while cnt > 0 and not flag:
-            cnt -= 1
-            flag = analyze_review(client, review, session, default_msg)
-            flag or time.sleep(180)
-
-        if not flag:
-            break
-        review.review_analyzed = True
-        session.add(review)
-        processed += 1
-
-        if processed % step == 0:
-            print("Processed {}/{} ".format(processed, total), end='\r')
-
-        if processed % throttle_limit == 0:
-            end_time = time.time()
-            time_taken = end_time - start_time
-            if time_taken < one_minute:
-                time.sleep(one_minute - time_taken)
-            start_time = time.time()
-
-    print("Processed {}/{} ".format(processed, total))
-    print("Committing data...")
-    session.commit()
-    session.close()
-
-    print("Processed data stored successfully!!")
 
 
 if __name__ == '__main__':

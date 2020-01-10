@@ -168,7 +168,7 @@ if __name__ == '__main__':
         process_input(str(header).lower() == "y")
         process_reviews()
     except:
-        # import traceback
-        #
-        # traceback.print_exc()
+        import traceback
+
+        traceback.print_exc()
         print("Error in Processing data!! Aborting!!")

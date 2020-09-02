@@ -1,7 +1,7 @@
 # Product Review Analyzer
 ## Requirements
-python 3.7
-Google Cloud Project and private_key.json file
+- python 3.7
+- Google Cloud Project and private_key.json file
 
 ## Steps to follow
 Download the private key for your account from GCP and put it in env variable as below:
